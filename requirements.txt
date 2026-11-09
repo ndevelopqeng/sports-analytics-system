@@ -2,4 +2,6 @@ sqlalchemy
 pandas
 numpy
 python-dotenv
-
+scikit-learn
+lightgbm
+joblib
