@@ -3,10 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SPORTS_API_KEY = os.getenv("SPORTS_API_KEY")
-WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+# Файл конфигурации переменных окружения (требование конфигурируемости)
 DB_STRING = os.getenv("DB_CONNECTION_STRING", "sqlite:///sports_analytics.db")
 
-# Параметры команды (например, ID футбольного клуба)
-TEAM_ID = 42  
+# Глобальные параметры для генерации и обработки данных по спортивной индустрии
+TEAM_ID = 777  
 CITY = "Moscow"
