@@ -1,101 +1,102 @@
 import os
+import json
 import joblib
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from sklearn.inspection import permutation_importance
 from lightgbm import LGBMRegressor
 
-# Импортируем пайплайн признаков из Шага 3
+import config
 from feature_engineering import FeaturePipeline
 
 def mean_absolute_percentage_error(y_true, y_pred):
-    """Расчет относительной ошибки MAPE в процентах"""
     y_true, y_pred = np.array(y_true), np.array(y_pred)
-    mask = y_true != 0  # Защита от деления на ноль
+    mask = y_true != 0
     return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
 
 def run_model_core():
-    print("=== [Шаг 4] Запуск Модельного Ядра и Валидации ===")
+    print("=== Запуск Модельного Ядра, Отбора Признаков и Валидации ===")
     
-    # 1. Загрузка признаковой матрицы и разделение по времени (Time-Based Split)
     pipeline = FeaturePipeline()
-    try:
-        features_df = pipeline.build_features_matrix()
-        X_train, y_train, X_val, y_val, X_future, feature_cols = pipeline.split_data(features_df)
-    except Exception as e:
-        print(f" Ошибка при подготовке признаков: {e}")
-        print("Пожалуйста, убедитесь, что вы предварительно запустили etl_pipeline.py для наполнения СУБД.")
-        return
+    features_df = pipeline.build_features_matrix()
+    X_train, y_train, X_val, y_val, X_future, feature_cols = pipeline.split_data(features_df)
 
-    # Бизнес-константа для перевода ошибки в понятную пользователю величину (по методичке)
-    AVG_TICKET_PRICE = 800  # Средняя цена одного билета в рублях
-    
-    # 2. Инициализация трех моделей различных классов по методичке
     models = {
-        "Базовая модель (Линейная регрессия)": LinearRegression(),
-        "Случайный лес (Ансамбль деревьев)": RandomForestRegressor(n_estimators=100, random_state=42),
-        "Градиентный бустинг (LightGBM)": LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1)
+        "Базовая (Линейная регрессия)": LinearRegression(),
+        "Случайный лес (Random Forest)": RandomForestRegressor(n_estimators=100, random_state=config.RANDOM_STATE),
+        "Градиентный бустинг (LightGBM)": LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=config.RANDOM_STATE, verbose=-1)
     }
     
-    best_model_name = None
-    best_mae = float('inf')
-    best_model_obj = None
     results_list = []
+    trained_models = {}
 
-    print(f"\n--- Старт обучения на {len(X_train)} матчах и временной валидации на {len(X_val)} матчах ---")
-    
     for name, model in models.items():
-        # Обучение строго на хронологическом прошлом (Train)
         model.fit(X_train, y_train)
-        
-        # Прогноз на хронологическом будущем (Validation)
         preds = model.predict(X_val)
         
-        # Расчет обязательных метрик точности
         mae = mean_absolute_error(y_val, preds)
+        rmse = root_mean_squared_error(y_val, preds)
         mape = mean_absolute_percentage_error(y_val, preds)
-        
-        # Перевод сухой математической ошибки в финансовый показатель (понятная величина)
-        financial_risk = mae * AVG_TICKET_PRICE
+        financial_risk = mae * config.AVG_TICKET_PRICE
         
         results_list.append({
-            "Модель": name,
-            "MAE (в билетах)": round(mae, 1),
-            "MAPE (%)": round(mape, 2),
-            "Финансовый риск (руб)": round(financial_risk, 0)
+            "model": name,
+            "MAE": round(float(mae), 1),
+            "RMSE": round(float(rmse), 1),
+            "MAPE": round(float(mape), 2),
+            "financial_risk_rub": round(float(financial_risk), 0)
         })
-        
-        # Поиск лучшей модели по MAE
-        if mae < best_mae:
-            best_mae = mae
-            best_model_name = name
-            best_model_obj = model
+        trained_models[name] = (model, mae)
 
-    # 3. Вывод сравнительного отчета (выполнение требования методички)
-    df_results = pd.DataFrame(results_list)
-    print("\nСравнительная таблица качества моделей (Временная валидация):")
-    print("=" * 85)
-    print(df_results.to_string(index=False))
-    print("=" * 85)
-    print(f" Лучшее качество продемонстрировала: {best_model_name}\n")
+    # Выбираем лучшую модель по MAE
+    best_model_name = min(trained_models, key=lambda k: trained_models[k][1])
+    best_model_obj, best_mae_before = trained_models[best_model_name]
+
+    # --- ОТБОР ПРИЗНАКОВ (требование методички) ---
+    perm = permutation_importance(best_model_obj, X_val, y_val, n_repeats=10, random_state=config.RANDOM_STATE, scoring='neg_mean_absolute_error')
+    selected_cols = [col for col, imp in zip(feature_cols, perm.importances_mean) if imp > 0]
     
-    # 4. Сохранение лучшей модели для интерактивного дашборда
-    os.makedirs("models", exist_ok=True)
-    joblib.dump(best_model_obj, "models/best_attendance_model.pkl")
-    joblib.dump(feature_cols, "models/feature_columns.pkl")
-    print(" Лучшая модель и метаданные признаков успешно сохранены в папку 'models/'.")
+    # Если отсеялось слишком много, оставляем минимум топ-5 признаков
+    if len(selected_cols) < 5:
+        top_idx = np.argsort(perm.importances_mean)[::-1][:5]
+        selected_cols = [feature_cols[i] for i in top_idx]
 
-    # 5. Демонстрационный расчет прогнозов для будущих матчей (Inference)
-    if not X_future.empty:
-        future_predictions = best_model_obj.predict(X_future)
-        # Ограничиваем снизу нулем и округляем до целых билетов
-        future_predictions = np.clip(future_predictions, 0, None).astype(int)
-        print(f" Успешно рассчитан прогноз посещаемости для {len(future_predictions)} предстоящих игр.")
-        print(f"Прогнозные значения: {future_predictions.tolist()}")
+    # Переобучаем лучшую модель на отобранных признаках и проверяем прирост качества
+    best_model_obj.fit(X_train[selected_cols], y_train)
+    preds_after = best_model_obj.predict(X_val[selected_cols])
+    best_mae_after = mean_absolute_error(y_val, preds_after)
+
+    # Если после отбора стало хуже, возвращаем полный набор признаков
+    if best_mae_after > best_mae_before:
+        selected_cols = feature_cols
+        best_model_obj.fit(X_train[selected_cols], y_train)
+        final_mae = best_mae_before
     else:
-        print(" В базе данных нет будущих матчей для прогнозирования.")
+        final_mae = best_mae_after
+
+    print("\nСравнительная таблица моделей:")
+    print(pd.DataFrame(results_list).to_string(index=False))
+    print(f"\nЛучшая модель: {best_model_name}")
+    print(f"Отбор признаков: оставлено {len(selected_cols)} из {len(feature_cols)} | MAE до: {best_mae_before:.1f} -> MAE после: {final_mae:.1f}")
+
+    # Сохраняем модель, список признаков и метрики для дашборда
+    os.makedirs(config.MODEL_DIR, exist_ok=True)
+    joblib.dump(best_model_obj, config.MODEL_PATH)
+    joblib.dump(selected_cols, config.COLS_PATH)
+    
+    metrics_payload = {
+        "best_model": best_model_name,
+        "mae_before_selection": round(float(best_mae_before), 1),
+        "mae_after_selection": round(float(final_mae), 1),
+        "features_total": len(feature_cols),
+        "features_selected": len(selected_cols),
+        "comparison": results_list
+    }
+    with open(config.METRICS_PATH, "w", encoding="utf-8") as f:
+        json.dump(metrics_payload, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     run_model_core()

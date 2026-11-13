@@ -1,0 +1,30 @@
+{
+  "best_model": "Случайный лес (Random Forest)",
+  "mae_before_selection": 2996.8,
+  "mae_after_selection": 2939.4,
+  "features_total": 17,
+  "features_selected": 5,
+  "comparison": [
+    {
+      "model": "Базовая (Линейная регрессия)",
+      "MAE": 4324.3,
+      "RMSE": 5612.5,
+      "MAPE": 32.79,
+      "financial_risk_rub": 3459409.0
+    },
+    {
+      "model": "Случайный лес (Random Forest)",
+      "MAE": 2996.8,
+      "RMSE": 3494.7,
+      "MAPE": 22.09,
+      "financial_risk_rub": 2397479.0
+    },
+    {
+      "model": "Градиентный бустинг (LightGBM)",
+      "MAE": 3928.4,
+      "RMSE": 4856.1,
+      "MAPE": 28.16,
+      "financial_risk_rub": 3142699.0
+    }
+  ]
+}

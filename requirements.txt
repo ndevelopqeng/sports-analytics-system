@@ -5,3 +5,7 @@ python-dotenv
 scikit-learn
 lightgbm
 joblib
+streamlit
+plotly
+shap
+matplotlib
