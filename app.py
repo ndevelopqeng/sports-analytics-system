@@ -135,9 +135,10 @@ with tab2:
     st.header("Объяснимый искусственный интеллект (XAI)")
     st.markdown("Модуль демонстрирует внутреннюю логику принятия решений моделью согласно требованиям проектной работы.")
 
-    X_all = features_df[feature_cols]
+    X_all = features_df[feature_cols].astype(float)
     explainer = shap.Explainer(model, X_all)
-    shap_values = explainer(X_all)
+    shap_values = explainer(X_all, check_additivity=False)
+
 
     # 1. Оценка важности признаков двумя независимыми способами
     st.subheader("1. Сравнение глобальной важности признаков (2 независимых метода)")
