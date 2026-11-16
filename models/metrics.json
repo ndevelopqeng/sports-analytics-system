@@ -13,7 +13,7 @@
       "financial_risk_rub": 3459409.0
     },
     {
-      "model": "Случайный лес (Random Forest)",
+      "model": "Ансамблевая модель (Random Forest)",
       "MAE": 2996.8,
       "RMSE": 3494.7,
       "MAPE": 22.09,

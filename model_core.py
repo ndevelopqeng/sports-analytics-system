@@ -26,7 +26,7 @@ def run_model_core():
 
     models = {
         "Базовая (Линейная регрессия)": LinearRegression(),
-        "Случайный лес (Random Forest)": RandomForestRegressor(n_estimators=100, random_state=config.RANDOM_STATE),
+        "Ансамблевая модель (Random Forest)": RandomForestRegressor(n_estimators=100, random_state=config.RANDOM_STATE),
         "Градиентный бустинг (LightGBM)": LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=config.RANDOM_STATE, verbose=-1)
     }
     
