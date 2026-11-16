@@ -64,8 +64,8 @@ flowchart TD
 
 1. **Клонируйте репозиторий и перейдите в папку проекта:**
    ```bash
-   git clone <https://github.com/ndevelopqeng/sports-analytics-system/>
-   cd sports_analytics_project
+   git clone https://github.com/ndevelopqeng/sports-analytics-system/
+   cd sports-analytics-system
    ```
 
 2. **Установите зависимости:**
@@ -74,7 +74,7 @@ flowchart TD
    ```
 
 3. **Настройте конфигурацию (опционально):**
-   Параметры подключения к БД, ID клуба и пути к файлам задаются в `config.py` или через файл `.env`.
+   Параметры подключения к БД (`DB_CONNECTION_STRING`), ID клуба (`TEAM_ID`), город (`CITY`), пути к файлам и параметры ML задаются по умолчанию в `config.py`. При необходимости переопределите их, создав файл `.env` на основе `.env.example`.
 
 4. **Запустите весь цикл одной командой:**
    ```bash
