@@ -64,8 +64,8 @@ flowchart TD
 
 1. **Клонируйте репозиторий и перейдите в папку проекта:**
    ```bash
-   git clone <ваш_url_репозитория>
-   cd sports-attendance-analytics
+   git clone <https://github.com/ndevelopqeng/sports-analytics-system/>
+   cd sports_analytics_project
    ```
 
 2. **Установите зависимости:**
